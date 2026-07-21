@@ -2,8 +2,6 @@
 
 该项目构建一个每用户安装的 Windows MSI。安装时会打开独立配置窗口，测试并使用当前用户的 Windows DPAPI 加密保存企业微信群机器人 Webhook，然后将一个 Stop Hook 合并到当前用户的 Codex `hooks.json`。
 
-安装包只提供企业微信通知，不包含 ntfy 或 token 统计功能，也不安装常驻程序。
-
 ## 用户环境
 
 - Windows 10 或 Windows 11
