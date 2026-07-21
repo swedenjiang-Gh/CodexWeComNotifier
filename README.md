@@ -33,13 +33,29 @@ dist\CodexWeComNotifier-x64.msi
 
 当前版本没有代码签名，Windows 会显示“未知发布者”。
 
-## 用户使用
+## 安装
 
-1. 运行 MSI。
-2. 在独立窗口中粘贴完整的企业微信群机器人 Webhook。
-3. 点击“测试并保存”。
-4. 在 Codex 设置的“钩子 / Hooks”中找到新 Hook 并设置信任。
-5. 重启 Codex，在新任务中生效。
+### 使用 winget
+
+winget 清单正在 [microsoft/winget-pkgs#405323](https://github.com/microsoft/winget-pkgs/pull/405323) 审核。PR 合并并同步到 winget 源后，可运行：
+
+```powershell
+winget source update
+winget install SwedenJiang.CodexWeComNotifier --interactive
+```
+
+必须保留 `--interactive`，因为安装过程中需要填写并测试企业微信 Webhook。
+
+### 下载安装包
+
+在 winget 清单正式上线前，可从 [GitHub Releases](https://github.com/swedenjiang-Gh/CodexWeComNotifier/releases/latest) 下载 `CodexWeComNotifier-x64.msi` 并运行。
+
+## 配置步骤
+
+1. 在安装时打开的独立窗口中粘贴完整的企业微信群机器人 Webhook。
+2. 点击“测试并保存”。
+3. 在 Codex 设置的“钩子 / Hooks”中找到新 Hook 并设置信任。
+4. 重启 Codex，在新任务中生效。
 
 安装后，以下两个脚本位于当前用户的 `%USERPROFILE%\.codex\hooks`：
 
