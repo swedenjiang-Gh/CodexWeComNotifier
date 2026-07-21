@@ -1,0 +1,11 @@
+# .NET build output
+**/bin/
+**/obj/
+
+# WiX and release artifacts are published through GitHub Releases.
+dist/
+*.wixpdb
+
+# Local IDE settings
+.vs/
+*.user

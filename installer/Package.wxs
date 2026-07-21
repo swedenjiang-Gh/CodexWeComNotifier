@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package
+    Name="Codex 企业微信通知"
+    Manufacturer="CodexWeComNotifier"
+    Version="1.0.0"
+    Language="2052"
+    UpgradeCode="B68341FD-D6A1-4BBC-AAE8-872D9654E2D4"
+    Scope="perUser"
+    InstallerVersion="500">
+
+    <SummaryInformation Description="Codex 任务完成后发送企业微信群机器人通知" />
+    <MajorUpgrade DowngradeErrorMessage="已经安装了更新版本的 Codex 企业微信通知。" />
+    <MediaTemplate EmbedCab="yes" />
+
+    <StandardDirectory Id="LocalAppDataFolder">
+      <Directory Id="ProgramsDirectory" Name="Programs">
+        <Directory Id="INSTALLFOLDER" Name="CodexWeComNotifier">
+          <Component Id="MainComponent" Guid="B391FBB7-BB9A-4132-9984-1E25D29877B7">
+            <File
+              Id="NotifierExe"
+              Source="$(var.NotifierSource)"
+              Name="CodexWeComNotifier.exe" />
+            <RegistryValue
+              Root="HKCU"
+              Key="Software\CodexWeComNotifier"
+              Name="Installed"
+              Type="integer"
+              Value="1"
+              KeyPath="yes" />
+            <Shortcut
+              Id="ConfigureShortcut"
+              Directory="ProgramMenuFolder"
+              Name="配置 Codex 企业微信通知"
+              Description="配置企业微信群机器人 Webhook"
+              Target="[#NotifierExe]"
+              Arguments="--configure"
+              WorkingDirectory="INSTALLFOLDER" />
+            <RemoveFolder Id="RemoveInstallFolder" Directory="INSTALLFOLDER" On="uninstall" />
+            <RemoveFolder Id="RemoveProgramsFolder" Directory="ProgramsDirectory" On="uninstall" />
+          </Component>
+        </Directory>
+      </Directory>
+    </StandardDirectory>
+
+    <CustomAction
+      Id="ConfigureProduct"
+      FileRef="NotifierExe"
+      ExeCommand="--configure --installer"
+      Execute="immediate"
+      Return="check"
+      Impersonate="yes" />
+
+    <CustomAction
+      Id="CleanupProduct"
+      FileRef="NotifierExe"
+      ExeCommand="--uninstall"
+      Execute="immediate"
+      Return="ignore"
+      Impersonate="yes" />
+
+    <InstallExecuteSequence>
+      <Custom Action="ConfigureProduct" After="InstallFiles" Condition="NOT Installed AND NOT WIX_UPGRADE_DETECTED AND ACTION&lt;&gt;&quot;ADMIN&quot;" />
+      <Custom Action="CleanupProduct" Before="RemoveFiles" Condition="REMOVE~=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
+    </InstallExecuteSequence>
+
+    <Feature Id="ProductFeature" Title="Codex 企业微信通知" Level="1">
+      <ComponentRef Id="MainComponent" />
+    </Feature>
+  </Package>
+</Wix>
