@@ -3,7 +3,7 @@
   <Package
     Name="Codex 企业微信通知"
     Manufacturer="CodexWeComNotifier"
-    Version="1.0.0"
+    Version="1.1.0"
     Language="2052"
     UpgradeCode="B68341FD-D6A1-4BBC-AAE8-872D9654E2D4"
     Scope="perUser"
@@ -13,48 +13,44 @@
     <MajorUpgrade DowngradeErrorMessage="已经安装了更新版本的 Codex 企业微信通知。" />
     <MediaTemplate EmbedCab="yes" />
 
-    <StandardDirectory Id="LocalAppDataFolder">
-      <Directory Id="ProgramsDirectory" Name="Programs">
-        <Directory Id="INSTALLFOLDER" Name="CodexWeComNotifier">
+    <Property Id="USERPROFILEFOLDER">
+      <RegistrySearch
+        Id="UserProfileSearch"
+        Root="HKCU"
+        Key="Volatile Environment"
+        Name="USERPROFILE"
+        Type="directory" />
+    </Property>
+
+    <Directory Id="USERPROFILEFOLDER">
+      <Directory Id="CODEXDIRECTORY" Name=".codex">
+        <Directory Id="INSTALLFOLDER" Name="hooks">
           <Component Id="MainComponent" Guid="B391FBB7-BB9A-4132-9984-1E25D29877B7">
             <File
-              Id="NotifierExe"
-              Source="$(var.NotifierSource)"
-              Name="CodexWeComNotifier.exe" />
-            <RegistryValue
-              Root="HKCU"
-              Key="Software\CodexWeComNotifier"
-              Name="Installed"
-              Type="integer"
-              Value="1"
-              KeyPath="yes" />
-            <Shortcut
-              Id="ConfigureShortcut"
-              Directory="ProgramMenuFolder"
-              Name="配置 Codex 企业微信通知"
-              Description="配置企业微信群机器人 Webhook"
-              Target="[#NotifierExe]"
-              Arguments="--configure"
-              WorkingDirectory="INSTALLFOLDER" />
-            <RemoveFolder Id="RemoveInstallFolder" Directory="INSTALLFOLDER" On="uninstall" />
-            <RemoveFolder Id="RemoveProgramsFolder" Directory="ProgramsDirectory" On="uninstall" />
+              Id="ConfigureScript"
+              Source="$(var.ConfigureScriptSource)"
+              Name="configure-wecom.ps1" />
+            <File
+              Id="NotificationScript"
+              Source="$(var.NotificationScriptSource)"
+              Name="notify-wecom.ps1" />
           </Component>
         </Directory>
       </Directory>
-    </StandardDirectory>
+    </Directory>
 
     <CustomAction
       Id="ConfigureProduct"
-      FileRef="NotifierExe"
-      ExeCommand="--configure --installer"
+      Directory="INSTALLFOLDER"
+      ExeCommand="&quot;[SystemFolder]WindowsPowerShell\v1.0\powershell.exe&quot; -NoLogo -NoProfile -ExecutionPolicy Bypass -File &quot;[#ConfigureScript]&quot;"
       Execute="immediate"
       Return="check"
       Impersonate="yes" />
 
     <CustomAction
       Id="CleanupProduct"
-      FileRef="NotifierExe"
-      ExeCommand="--uninstall"
+      Directory="INSTALLFOLDER"
+      ExeCommand="&quot;[SystemFolder]WindowsPowerShell\v1.0\powershell.exe&quot; -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File &quot;[#ConfigureScript]&quot; -Uninstall"
       Execute="immediate"
       Return="ignore"
       Impersonate="yes" />

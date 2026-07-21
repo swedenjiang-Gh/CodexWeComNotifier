@@ -4,21 +4,21 @@ param()
 $ErrorActionPreference = 'Stop'
 
 $projectRoot = $PSScriptRoot
-$dotnet = Join-Path $env:ProgramFiles 'dotnet\dotnet.exe'
+$windowsPowerShell = Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.exe'
 $wix = (Get-Command wix.exe -ErrorAction SilentlyContinue).Source
 if ([string]::IsNullOrWhiteSpace($wix)) {
     $wix = Join-Path $env:USERPROFILE '.dotnet\tools\wix.exe'
 }
-$testProject = Join-Path $projectRoot 'tests\CodexWeComNotifier.Tests\CodexWeComNotifier.Tests.csproj'
+$testScript = Join-Path $projectRoot 'tests\test-powershell.ps1'
 $buildScript = Join-Path $projectRoot 'build.ps1'
 $msiPath = Join-Path $projectRoot 'dist\CodexWeComNotifier-x64.msi'
 
-& $dotnet run --project $testProject -c Release
+& $windowsPowerShell -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $testScript
 if ($LASTEXITCODE -ne 0) {
     throw "Tests failed with exit code $LASTEXITCODE"
 }
 
-& pwsh.exe -NoLogo -NoProfile -NonInteractive -File $buildScript
+& $windowsPowerShell -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $buildScript
 if ($LASTEXITCODE -ne 0) {
     throw "Build failed with exit code $LASTEXITCODE"
 }
@@ -33,44 +33,32 @@ if ($LASTEXITCODE -ne 0) {
     throw "MSI validation failed with exit code $LASTEXITCODE"
 }
 
-$extractDirectory = Join-Path $env:TEMP ('CodexWeComNotifierVerify-' + [guid]::NewGuid().ToString('N'))
-New-Item -ItemType Directory -Path $extractDirectory -Force | Out-Null
-$msiArguments = @(
-    '/a'
-    $msiPath
-    '/qn'
-    "TARGETDIR=$extractDirectory"
-)
-$msiPathExecutable = (Get-Command msiexec.exe -ErrorAction Stop).Source
-for ($attempt = 1; $attempt -le 10; $attempt++) {
-    $msiProcessInfo = [System.Diagnostics.ProcessStartInfo]::new()
-    $msiProcessInfo.FileName = $msiPathExecutable
-    $msiProcessInfo.UseShellExecute = $false
-    foreach ($argument in $msiArguments) {
-        $msiProcessInfo.ArgumentList.Add($argument)
-    }
-    $msiProcess = [System.Diagnostics.Process]::Start($msiProcessInfo)
-    $msiProcess.WaitForExit()
-    if ($msiProcess.ExitCode -ne 1618 -or $attempt -eq 10) {
-        break
-    }
-    Start-Sleep -Seconds 1
-}
-if ($msiProcess.ExitCode -ne 0) {
-    throw "Administrative extraction failed with exit code $($msiProcess.ExitCode)"
+$verificationDirectory = Join-Path $env:TEMP ('CodexWeComNotifierVerify-' + [guid]::NewGuid().ToString('N'))
+$extractDirectory = Join-Path $verificationDirectory 'files'
+$decompiledSource = Join-Path $verificationDirectory 'Package.wxs'
+New-Item -ItemType Directory -Path $verificationDirectory | Out-Null
+& $wix msi decompile $msiPath -x $extractDirectory -o $decompiledSource
+if ($LASTEXITCODE -ne 0) {
+    throw "MSI extraction failed with exit code $LASTEXITCODE"
 }
 
-$extractedExecutables = @(Get-ChildItem -LiteralPath $extractDirectory -Filter 'CodexWeComNotifier.exe' -File -Recurse)
-if ($extractedExecutables.Count -ne 1) {
-    throw "Expected one extracted notifier executable, found $($extractedExecutables.Count)."
+$extractedConfigurationScripts = @(Get-Item -LiteralPath (Join-Path $extractDirectory 'File\ConfigureScript') -ErrorAction SilentlyContinue)
+$extractedNotificationScripts = @(Get-Item -LiteralPath (Join-Path $extractDirectory 'File\NotificationScript') -ErrorAction SilentlyContinue)
+if ($extractedConfigurationScripts.Count -ne 1 -or $extractedNotificationScripts.Count -ne 1) {
+    throw 'Expected one configuration script and one notification script in the MSI.'
+}
+foreach ($scriptFile in @($extractedConfigurationScripts[0], $extractedNotificationScripts[0])) {
+    $scriptBytes = [IO.File]::ReadAllBytes($scriptFile.FullName)
+    if ($scriptBytes.Length -lt 3 -or $scriptBytes[0] -ne 0xEF -or $scriptBytes[1] -ne 0xBB -or $scriptBytes[2] -ne 0xBF) {
+        throw "Windows PowerShell script is not UTF-8 with BOM: $($scriptFile.FullName)"
+    }
+}
+if (@(Get-ChildItem -LiteralPath $extractDirectory -Filter '*.exe' -File -Recurse).Count -ne 0) {
+    throw 'The MSI must not contain executable files.'
 }
 
 $sourcePatterns = @(
     [Environment]::GetFolderPath([Environment+SpecialFolder]::UserProfile)
-    ('nt' + 'fy.sh')
-    ('nt' + 'fy-topic')
-    ('notify' + '-dual')
-    ('wecom-webhook' + '.dpapi')
 )
 $sourceFiles = Get-ChildItem -LiteralPath $projectRoot -File -Recurse |
     Where-Object { $_.FullName -notmatch '[\\/](bin|obj|dist)[\\/]' }
@@ -80,15 +68,21 @@ foreach ($pattern in $sourcePatterns) {
         throw "Sensitive source marker found: $pattern"
     }
 }
+$webhookPattern = 'qyapi\.weixin\.qq\.com/cgi-bin/webhook/send\?key=([0-9a-fA-F-]{36})'
+foreach ($sourceFile in $sourceFiles) {
+    $sourceText = Get-Content -LiteralPath $sourceFile.FullName -Raw
+    foreach ($match in [regex]::Matches($sourceText, $webhookPattern)) {
+        if ($match.Groups[1].Value -ne '00000000-0000-0000-0000-000000000000') {
+            throw "Webhook credential found in source: $($sourceFile.FullName)"
+        }
+    }
+}
 
 $binaryPatterns = @(
     [Environment]::GetFolderPath([Environment+SpecialFolder]::UserProfile)
-    ('nt' + 'fy')
-    ('notify' + '-dual')
     'test-key'
-    'qyapi.weixin.qq.com/cgi-bin/webhook/send?key='
 )
-$binaryFiles = @($msiPath) + $extractedExecutables.FullName
+$binaryFiles = @($msiPath) + $extractedConfigurationScripts.FullName + $extractedNotificationScripts.FullName
 foreach ($binaryFile in $binaryFiles) {
     $bytes = [System.IO.File]::ReadAllBytes($binaryFile)
     $ascii = [System.Text.Encoding]::ASCII.GetString($bytes)
@@ -96,6 +90,13 @@ foreach ($binaryFile in $binaryFiles) {
     foreach ($pattern in $binaryPatterns) {
         if ($ascii.Contains($pattern) -or $unicode.Contains($pattern)) {
             throw "Sensitive binary marker found in $binaryFile"
+        }
+    }
+    foreach ($binaryText in @($ascii, $unicode)) {
+        foreach ($match in [regex]::Matches($binaryText, $webhookPattern)) {
+            if ($match.Groups[1].Value -ne '00000000-0000-0000-0000-000000000000') {
+                throw "Webhook credential found in $binaryFile"
+            }
         }
     }
 }
@@ -110,7 +111,8 @@ $signature = Get-AuthenticodeSignature -LiteralPath $msiPath
     Sha256               = $hash.Hash
     SignatureStatus      = $signature.Status
     ExtractDirectory     = $extractDirectory
-    ExtractedExecutable  = $extractedExecutables[0].FullName
+    ConfigurationScript  = $extractedConfigurationScripts[0].FullName
+    NotificationScript   = $extractedNotificationScripts[0].FullName
     Tests                = 'PASS'
     WixValidation        = 'PASS'
     SensitiveMarkerScan = 'PASS'

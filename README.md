@@ -2,18 +2,27 @@
 
 该项目构建一个每用户安装的 Windows MSI。安装时会打开独立配置窗口，测试并使用当前用户的 Windows DPAPI 加密保存企业微信群机器人 Webhook，然后将一个 Stop Hook 合并到当前用户的 Codex `hooks.json`。
 
+安装包只提供企业微信通知，不包含 ntfy 或 token 统计功能，也不安装常驻程序。
+
+## 用户环境
+
+- Windows 10 或 Windows 11
+- Windows 自带的 Windows PowerShell 5.1（`powershell.exe`）
+- Codex
+- 可访问企业微信机器人 Webhook 的网络
+
+不需要 PowerShell 7、.NET Framework 4.8、.NET SDK、Node.js 或企业微信客户端。
+
 ## 构建
 
-要求：
+构建电脑要求：
 
-- .NET Framework 4.8 targeting pack
-- .NET SDK
 - WiX Toolset 4
 
 运行：
 
 ```powershell
-pwsh.exe -NoLogo -NoProfile -NonInteractive -File .\build.ps1
+powershell.exe -NoLogo -NoProfile -NonInteractive -File .\build.ps1
 ```
 
 输出：
@@ -32,4 +41,9 @@ dist\CodexWeComNotifier-x64.msi
 4. 在 Codex 设置的“钩子 / Hooks”中找到新 Hook 并设置信任。
 5. 重启 Codex，在新任务中生效。
 
-程序不常驻后台。每次任务结束时，Codex 静默启动程序的 `--hook` 模式；消息发送后程序立即退出。
+安装后，以下两个脚本位于当前用户的 `%USERPROFILE%\.codex\hooks`：
+
+- `configure-wecom.ps1`：配置或更新 Webhook。
+- `notify-wecom.ps1`：Codex 任务结束时发送企业微信通知。
+
+Webhook 只会在目标电脑上生成 `%USERPROFILE%\.codex\hooks\wecom-webhook.dpapi`，不会进入源码或安装包。Codex 每次任务结束时临时运行 `notify-wecom.ps1`，发送完成后脚本立即退出。
