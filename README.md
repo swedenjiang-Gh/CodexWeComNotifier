@@ -37,8 +37,6 @@ dist\CodexWeComNotifier-x64.msi
 
 ### 使用 winget
 
-winget 清单正在 [microsoft/winget-pkgs#405323](https://github.com/microsoft/winget-pkgs/pull/405323) 审核。PR 合并并同步到 winget 源后，可运行：
-
 ```powershell
 winget source update
 winget install SwedenJiang.CodexWeComNotifier --interactive
