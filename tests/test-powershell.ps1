@@ -89,6 +89,7 @@ $packageSource = Get-Content -LiteralPath (Join-Path $projectRoot 'installer\Pac
 $buildSource = Get-Content -LiteralPath (Join-Path $projectRoot 'build.ps1') -Raw
 Assert-True ($packageSource -match 'ConfigureScript') 'The MSI must install and launch the PowerShell configuration script.'
 Assert-True ($packageSource -match 'NotificationScript') 'The MSI must contain the enterprise WeChat notification script.'
+Assert-True ($packageSource -match 'Custom Action="ConfigureProduct"[^>]+Condition="[^"]*UILevel\s*&gt;=\s*4[^"]*"') 'The MSI must launch the configuration window only in full interactive UI mode.'
 Assert-True ($packageSource -notmatch 'NotifierExe|CodexWeComNotifier\.exe') 'The MSI must not install the old .NET executable.'
 Assert-True ($buildSource -notmatch '(?i)dotnet build|net48|\.csproj|dotnet\.exe was not found') 'The MSI build must not require the .NET SDK or .NET Framework build output.'
 

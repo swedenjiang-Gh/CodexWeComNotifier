@@ -3,7 +3,7 @@
   <Package
     Name="Codex 企业微信通知"
     Manufacturer="CodexWeComNotifier"
-    Version="1.1.0"
+    Version="1.1.1"
     Language="2052"
     UpgradeCode="B68341FD-D6A1-4BBC-AAE8-872D9654E2D4"
     Scope="perUser"
@@ -56,7 +56,7 @@
       Impersonate="yes" />
 
     <InstallExecuteSequence>
-      <Custom Action="ConfigureProduct" After="InstallFiles" Condition="NOT Installed AND NOT WIX_UPGRADE_DETECTED AND ACTION&lt;&gt;&quot;ADMIN&quot;" />
+      <Custom Action="ConfigureProduct" After="InstallFiles" Condition="NOT Installed AND NOT WIX_UPGRADE_DETECTED AND ACTION&lt;&gt;&quot;ADMIN&quot; AND UILevel&gt;=4" />
       <Custom Action="CleanupProduct" Before="RemoveFiles" Condition="REMOVE~=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
     </InstallExecuteSequence>
 
