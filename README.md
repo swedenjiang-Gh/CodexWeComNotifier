@@ -1,6 +1,6 @@
 # Codex 企业微信通知
 
-该项目构建一个每用户安装的 Windows MSI。安装时会打开独立配置窗口，测试并使用当前用户的 Windows DPAPI 加密保存企业微信群机器人 Webhook，然后将一个 Stop Hook 合并到当前用户的 Codex `hooks.json`。
+该项目构建一个每用户安装的 Windows MSI。交互安装时会打开独立配置窗口，测试并使用当前用户的 Windows DPAPI 加密保存企业微信群机器人 Webhook，然后将一个 Stop Hook 合并到当前用户的 Codex `hooks.json`。
 
 ## 用户环境
 
@@ -40,11 +40,11 @@ winget source update
 winget install SwedenJiang.CodexWeComNotifier --interactive
 ```
 
-必须保留 `--interactive`，因为安装过程中需要填写并测试企业微信 Webhook。
+必须保留 `--interactive`。该参数会以完整界面模式启动 MSI，以便填写并测试企业微信 Webhook；不带该参数时只安装脚本，不打开配置窗口。
 
 ### 下载安装包
 
-在 winget 清单正式上线前，可从 [GitHub Releases](https://github.com/swedenjiang-Gh/CodexWeComNotifier/releases/latest) 下载 `CodexWeComNotifier-x64.msi` 并运行。
+也可以从 [GitHub Releases](https://github.com/swedenjiang-Gh/CodexWeComNotifier/releases/latest) 下载 `CodexWeComNotifier-x64.msi` 并双击运行。
 
 ## 配置步骤
 
