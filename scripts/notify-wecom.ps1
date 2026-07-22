@@ -2,6 +2,8 @@
 param()
 
 $ErrorActionPreference = 'Stop'
+[Console]::InputEncoding = [Text.UTF8Encoding]::new($false)
+[Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
 Add-Type -AssemblyName System.Security
 
 function Get-WeComSecret {
@@ -69,10 +71,54 @@ function New-WeComNotificationBody {
         [string]$Workspace,
 
         [Parameter(Mandatory)]
-        [string]$Timestamp
+        [string]$Timestamp,
+
+        [AllowEmptyString()]
+        [string]$TokenSummaryText
     )
 
-    "Codex 任务已完成`n工作区：$Workspace`n时间：$Timestamp"
+    if ([string]::IsNullOrWhiteSpace($TokenSummaryText)) {
+        $TokenSummaryText = 'Token 统计暂不可用'
+    }
+
+    "Codex 任务轮次已结束`n工作区：$Workspace`n时间：$Timestamp`n`n$TokenSummaryText"
+}
+
+function Get-WeComTokenSummary {
+    param(
+        [AllowEmptyString()]
+        [string]$EventJson
+    )
+
+    if ([string]::IsNullOrWhiteSpace($EventJson)) {
+        return $null
+    }
+
+    $summaryScript = Join-Path $PSScriptRoot 'task-token-summary.ps1'
+    if (-not (Test-Path -LiteralPath $summaryScript -PathType Leaf)) {
+        return $null
+    }
+
+    try {
+        $windowsPowerShell = Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.exe'
+        $summaryOutput = @($EventJson | & $windowsPowerShell -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $summaryScript)
+        if ($LASTEXITCODE -ne 0 -or $summaryOutput.Count -eq 0) {
+            return $null
+        }
+
+        $summaryJson = $summaryOutput -join [Environment]::NewLine
+        $summary = $summaryJson | ConvertFrom-Json -ErrorAction Stop
+        if ([string]::IsNullOrWhiteSpace([string]$summary.systemMessage)) {
+            return $null
+        }
+
+        [pscustomobject]@{
+            Json = $summaryJson
+            Text = [string]$summary.systemMessage
+        }
+    } catch {
+        $null
+    }
 }
 
 function Send-WeComNotification {
@@ -111,10 +157,15 @@ function Invoke-WeComStopHook {
         return
     }
 
+    $tokenSummary = Get-WeComTokenSummary -EventJson $EventJson
+    $summaryText = if ($null -ne $tokenSummary) { $tokenSummary.Text } else { '' }
     $workspace = Get-WeComWorkspace -EventJson $EventJson
-    $body = New-WeComNotificationBody -Workspace $workspace -Timestamp (Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
+    $body = New-WeComNotificationBody -Workspace $workspace -Timestamp (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') -TokenSummaryText $summaryText
     $webhook = Get-WeComSecret -SecretPath $secretPath
     Send-WeComNotification -Webhook $webhook -Body $body
+    if ($null -ne $tokenSummary) {
+        $tokenSummary.Json
+    }
 }
 
 if ($MyInvocation.InvocationName -ne '.') {

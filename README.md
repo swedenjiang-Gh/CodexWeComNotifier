@@ -1,6 +1,6 @@
 # Codex 企业微信通知
 
-该项目构建一个每用户安装的 Windows MSI。交互安装时会打开独立配置窗口，测试并使用当前用户的 Windows DPAPI 加密保存企业微信群机器人 Webhook，然后将一个 Stop Hook 合并到当前用户的 Codex `hooks.json`。
+该项目构建一个每用户安装的 Windows MSI。交互安装时会打开独立配置窗口，测试并使用当前用户的 Windows DPAPI 加密保存企业微信群机器人 Webhook，然后将一个 Stop Hook 合并到当前用户的 Codex `hooks.json`。任务结束通知包含本轮输入、输出、缓存、子 Agent、模型调用、上下文占用、会话累计和耗时统计。
 
 ## 用户环境
 
@@ -53,9 +53,11 @@ winget install SwedenJiang.CodexWeComNotifier --interactive
 3. 在 Codex 设置的“钩子 / Hooks”中找到新 Hook 并设置信任。
 4. 重启 Codex，在新任务中生效。
 
-安装后，以下两个脚本位于当前用户的 `%USERPROFILE%\.codex\hooks`：
+安装后，以下脚本位于当前用户的 `%USERPROFILE%\.codex\hooks`：
 
 - `configure-wecom.ps1`：配置或更新 Webhook。
 - `notify-wecom.ps1`：Codex 任务结束时发送企业微信通知。
+- `task-token-summary.ps1`：汇总当前任务及子 Agent 的 Token 使用情况。
+- `hook-event-metadata.ps1`：读取 Hook 事件中的会话与任务信息。
 
 Webhook 只会在目标电脑上生成 `%USERPROFILE%\.codex\hooks\wecom-webhook.dpapi`，不会进入源码或安装包。Codex 每次任务结束时临时运行 `notify-wecom.ps1`，发送完成后脚本立即退出。

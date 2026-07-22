@@ -44,10 +44,12 @@ if ($LASTEXITCODE -ne 0) {
 
 $extractedConfigurationScripts = @(Get-Item -LiteralPath (Join-Path $extractDirectory 'File\ConfigureScript') -ErrorAction SilentlyContinue)
 $extractedNotificationScripts = @(Get-Item -LiteralPath (Join-Path $extractDirectory 'File\NotificationScript') -ErrorAction SilentlyContinue)
-if ($extractedConfigurationScripts.Count -ne 1 -or $extractedNotificationScripts.Count -ne 1) {
-    throw 'Expected one configuration script and one notification script in the MSI.'
+$extractedTokenSummaryScripts = @(Get-Item -LiteralPath (Join-Path $extractDirectory 'File\TokenSummaryScript') -ErrorAction SilentlyContinue)
+$extractedHookMetadataScripts = @(Get-Item -LiteralPath (Join-Path $extractDirectory 'File\HookMetadataScript') -ErrorAction SilentlyContinue)
+if ($extractedConfigurationScripts.Count -ne 1 -or $extractedNotificationScripts.Count -ne 1 -or $extractedTokenSummaryScripts.Count -ne 1 -or $extractedHookMetadataScripts.Count -ne 1) {
+    throw 'Expected the configuration, notification, token summary, and hook metadata scripts in the MSI.'
 }
-foreach ($scriptFile in @($extractedConfigurationScripts[0], $extractedNotificationScripts[0])) {
+foreach ($scriptFile in @($extractedConfigurationScripts[0], $extractedNotificationScripts[0], $extractedTokenSummaryScripts[0], $extractedHookMetadataScripts[0])) {
     $scriptBytes = [IO.File]::ReadAllBytes($scriptFile.FullName)
     if ($scriptBytes.Length -lt 3 -or $scriptBytes[0] -ne 0xEF -or $scriptBytes[1] -ne 0xBB -or $scriptBytes[2] -ne 0xBF) {
         throw "Windows PowerShell script is not UTF-8 with BOM: $($scriptFile.FullName)"
@@ -82,7 +84,7 @@ $binaryPatterns = @(
     [Environment]::GetFolderPath([Environment+SpecialFolder]::UserProfile)
     'test-key'
 )
-$binaryFiles = @($msiPath) + $extractedConfigurationScripts.FullName + $extractedNotificationScripts.FullName
+$binaryFiles = @($msiPath) + $extractedConfigurationScripts.FullName + $extractedNotificationScripts.FullName + $extractedTokenSummaryScripts.FullName + $extractedHookMetadataScripts.FullName
 foreach ($binaryFile in $binaryFiles) {
     $bytes = [System.IO.File]::ReadAllBytes($binaryFile)
     $ascii = [System.Text.Encoding]::ASCII.GetString($bytes)
@@ -113,6 +115,8 @@ $signature = Get-AuthenticodeSignature -LiteralPath $msiPath
     ExtractDirectory     = $extractDirectory
     ConfigurationScript  = $extractedConfigurationScripts[0].FullName
     NotificationScript   = $extractedNotificationScripts[0].FullName
+    TokenSummaryScript   = $extractedTokenSummaryScripts[0].FullName
+    HookMetadataScript   = $extractedHookMetadataScripts[0].FullName
     Tests                = 'PASS'
     WixValidation        = 'PASS'
     SensitiveMarkerScan = 'PASS'

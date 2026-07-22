@@ -3,7 +3,7 @@
   <Package
     Name="Codex 企业微信通知"
     Manufacturer="CodexWeComNotifier"
-    Version="1.1.3"
+    Version="2.0.0"
     Language="2052"
     UpgradeCode="B68341FD-D6A1-4BBC-AAE8-872D9654E2D4"
     Scope="perUser"
@@ -34,6 +34,14 @@
               Id="NotificationScript"
               Source="$(var.NotificationScriptSource)"
               Name="notify-wecom.ps1" />
+            <File
+              Id="TokenSummaryScript"
+              Source="$(var.TokenSummaryScriptSource)"
+              Name="task-token-summary.ps1" />
+            <File
+              Id="HookMetadataScript"
+              Source="$(var.HookMetadataScriptSource)"
+              Name="hook-event-metadata.ps1" />
           </Component>
         </Directory>
       </Directory>
