@@ -4,6 +4,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName System.Security
 
 $WebhookReminder = '可以先建两个机器人，然后和机器人拉个群聊，然后点群聊右上方的三个点···，找到消息推送，点“添加”即可提取webhook地址。'
 $HookTrustReminder = '在codex设置的钩子/hooks里可以找到新的hook，设置信任即可。'
@@ -59,9 +60,17 @@ function Save-WeComSecret {
         New-Item -ItemType Directory -Path $secretDirectory | Out-Null
     }
 
-    $secureWebhook = ConvertTo-SecureString -String $Webhook -AsPlainText -Force
-    $encryptedWebhook = ConvertFrom-SecureString -SecureString $secureWebhook
-    [IO.File]::WriteAllText($SecretPath, $encryptedWebhook, [Text.UTF8Encoding]::new($false))
+    $plainBytes = [Text.Encoding]::Unicode.GetBytes($Webhook)
+    try {
+        $protectedBytes = [System.Security.Cryptography.ProtectedData]::Protect(
+            $plainBytes,
+            $null,
+            [System.Security.Cryptography.DataProtectionScope]::CurrentUser)
+        $encryptedWebhook = [BitConverter]::ToString($protectedBytes).Replace('-', '')
+        [IO.File]::WriteAllText($SecretPath, $encryptedWebhook, [Text.UTF8Encoding]::new($false))
+    } finally {
+        [Array]::Clear($plainBytes, 0, $plainBytes.Length)
+    }
 }
 
 function Get-WeComHookCommand {

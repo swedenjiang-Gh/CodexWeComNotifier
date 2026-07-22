@@ -67,7 +67,20 @@ try {
 
     $secretPath = Join-Path $temporaryRoot 'wecom-webhook.dpapi'
     Save-WeComSecret -Webhook $validWebhook -SecretPath $secretPath
-    Assert-True ((Get-WeComSecret -SecretPath $secretPath) -eq $validWebhook) 'The DPAPI-protected webhook must round-trip for the current user.'
+    Assert-True ([string]::Equals((Get-WeComSecret -SecretPath $secretPath), $validWebhook, [StringComparison]::Ordinal)) 'The DPAPI-protected webhook must round-trip for the current user.'
+
+    $legacyPlainBytes = [Text.Encoding]::Unicode.GetBytes($validWebhook)
+    try {
+        $legacyProtectedBytes = [Security.Cryptography.ProtectedData]::Protect(
+            $legacyPlainBytes,
+            $null,
+            [Security.Cryptography.DataProtectionScope]::CurrentUser)
+        $legacyEncryptedWebhook = [BitConverter]::ToString($legacyProtectedBytes).Replace('-', '')
+        [IO.File]::WriteAllText($secretPath, $legacyEncryptedWebhook, [Text.UTF8Encoding]::new($false))
+    } finally {
+        [Array]::Clear($legacyPlainBytes, 0, $legacyPlainBytes.Length)
+    }
+    Assert-True ([string]::Equals((Get-WeComSecret -SecretPath $secretPath), $validWebhook, [StringComparison]::Ordinal)) 'The notifier must read legacy Windows PowerShell DPAPI secrets.'
 
     Install-WeComNotificationScript -SourcePath $notifyScript -DestinationPath $notifyScript
 } finally {
@@ -82,14 +95,21 @@ try {
 $combinedSource = (Get-Content -LiteralPath $notifyScript -Raw) + (Get-Content -LiteralPath $configureScript -Raw)
 Assert-True ($combinedSource -notmatch '(?i)ntfy|token') 'Installed scripts must not contain ntfy or token features.'
 Assert-True ($combinedSource -notmatch '(?i)pwsh\.exe') 'Installed scripts must not require PowerShell 7.'
+Assert-True ($combinedSource -notmatch 'ConvertTo-SecureString|ConvertFrom-SecureString|Microsoft\.PowerShell\.Security') 'Installed scripts must not depend on PowerShell Security module auto-loading.'
+Assert-True ($combinedSource -match 'Security\.Cryptography\.ProtectedData') 'Installed scripts must use the .NET DPAPI implementation.'
 Assert-True ($combinedSource.Contains('可以先建两个机器人，然后和机器人拉个群聊，然后点群聊右上方的三个点···，找到消息推送，点“添加”即可提取webhook地址。')) 'The webhook extraction reminder must be preserved exactly.'
 Assert-True ($combinedSource.Contains('在codex设置的钩子/hooks里可以找到新的hook，设置信任即可。')) 'The hook trust reminder must be preserved exactly.'
 
 $packageSource = Get-Content -LiteralPath (Join-Path $projectRoot 'installer\Package.wxs') -Raw
 $buildSource = Get-Content -LiteralPath (Join-Path $projectRoot 'build.ps1') -Raw
+$installExecuteSequence = [regex]::Match($packageSource, '(?s)<InstallExecuteSequence>(.*?)</InstallExecuteSequence>').Groups[1].Value
+$installUISequence = [regex]::Match($packageSource, '(?s)<InstallUISequence>(.*?)</InstallUISequence>').Groups[1].Value
 Assert-True ($packageSource -match 'ConfigureScript') 'The MSI must install and launch the PowerShell configuration script.'
 Assert-True ($packageSource -match 'NotificationScript') 'The MSI must contain the enterprise WeChat notification script.'
-Assert-True ($packageSource -match 'Custom Action="ConfigureProduct"[^>]+Condition="[^"]*UILevel\s*&gt;=\s*4[^"]*"') 'The MSI must launch the configuration window only in full interactive UI mode.'
+Assert-True ($installUISequence -match '<Custom Action="ConfigureProduct" After="ExecuteAction" Condition="[^"]*UILevel\s*&gt;=\s*4[^"]*"') 'The MSI must launch the configuration window from the interactive UI sequence after installation.'
+Assert-True ($installUISequence -notmatch 'WIX_UPGRADE_DETECTED') 'An interactive upgrade must allow the user to configure the webhook.'
+Assert-True ($installExecuteSequence -notmatch '<Custom Action="ConfigureProduct"') 'The MSI execute sequence must not launch the interactive configuration window.'
+Assert-True ($packageSource -match '(?s)<CustomAction\s+Id="ConfigureProduct".*?Return="ignore"') 'Closing the configuration window must not make the completed MSI installation fail.'
 Assert-True ($packageSource -notmatch 'NotifierExe|CodexWeComNotifier\.exe') 'The MSI must not install the old .NET executable.'
 Assert-True ($buildSource -notmatch '(?i)dotnet build|net48|\.csproj|dotnet\.exe was not found') 'The MSI build must not require the .NET SDK or .NET Framework build output.'
 

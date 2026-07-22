@@ -3,7 +3,7 @@
   <Package
     Name="Codex 企业微信通知"
     Manufacturer="CodexWeComNotifier"
-    Version="1.1.1"
+    Version="1.1.3"
     Language="2052"
     UpgradeCode="B68341FD-D6A1-4BBC-AAE8-872D9654E2D4"
     Scope="perUser"
@@ -44,7 +44,7 @@
       Directory="INSTALLFOLDER"
       ExeCommand="&quot;[SystemFolder]WindowsPowerShell\v1.0\powershell.exe&quot; -NoLogo -NoProfile -ExecutionPolicy Bypass -File &quot;[#ConfigureScript]&quot;"
       Execute="immediate"
-      Return="check"
+      Return="ignore"
       Impersonate="yes" />
 
     <CustomAction
@@ -56,9 +56,12 @@
       Impersonate="yes" />
 
     <InstallExecuteSequence>
-      <Custom Action="ConfigureProduct" After="InstallFiles" Condition="NOT Installed AND NOT WIX_UPGRADE_DETECTED AND ACTION&lt;&gt;&quot;ADMIN&quot; AND UILevel&gt;=4" />
       <Custom Action="CleanupProduct" Before="RemoveFiles" Condition="REMOVE~=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
     </InstallExecuteSequence>
+
+    <InstallUISequence>
+      <Custom Action="ConfigureProduct" After="ExecuteAction" Condition="NOT Installed AND ACTION&lt;&gt;&quot;ADMIN&quot; AND UILevel&gt;=4" />
+    </InstallUISequence>
 
     <Feature Id="ProductFeature" Title="Codex 企业微信通知" Level="1">
       <ComponentRef Id="MainComponent" />

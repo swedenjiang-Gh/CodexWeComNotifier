@@ -2,6 +2,7 @@
 param()
 
 $ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName System.Security
 
 function Get-WeComSecret {
     param(
@@ -10,9 +11,24 @@ function Get-WeComSecret {
     )
 
     $encryptedValue = (Get-Content -LiteralPath $SecretPath -Raw).Trim()
-    $secureValue = ConvertTo-SecureString $encryptedValue
-    $credential = New-Object System.Management.Automation.PSCredential('wecom', $secureValue)
-    $credential.GetNetworkCredential().Password
+    if ($encryptedValue.Length % 2 -ne 0 -or $encryptedValue -notmatch '^[0-9a-fA-F]+$') {
+        throw 'The DPAPI secret has an invalid format.'
+    }
+
+    $protectedBytes = New-Object byte[] ($encryptedValue.Length / 2)
+    for ($index = 0; $index -lt $protectedBytes.Length; $index++) {
+        $protectedBytes[$index] = [Convert]::ToByte($encryptedValue.Substring($index * 2, 2), 16)
+    }
+
+    $plainBytes = [System.Security.Cryptography.ProtectedData]::Unprotect(
+        $protectedBytes,
+        $null,
+        [System.Security.Cryptography.DataProtectionScope]::CurrentUser)
+    try {
+        [Text.Encoding]::Unicode.GetString($plainBytes)
+    } finally {
+        [Array]::Clear($plainBytes, 0, $plainBytes.Length)
+    }
 }
 
 function Get-WeComWorkspace {
